@@ -10,6 +10,11 @@ public class HttpServer : MonoBehaviour
     private LeaderboardManager lbManager;
     private string localIPAddress;
 
+    private void Awake() {
+        // Find the LeaderboardManager component in the scene
+        lbManager = FindObjectOfType<LeaderboardManager>();
+    }
+
     private void Start()
     {
         localIPAddress = GetLocalIPAddress();

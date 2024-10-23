@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using Newtonsoft.Json;
 
 public class LeaderboardManager : MonoBehaviour
 {
@@ -15,6 +14,21 @@ public class LeaderboardManager : MonoBehaviour
 
     private Dictionary<int, SingleEntry> userMap = new Dictionary<int, SingleEntry>(); // Map for user references
     private int newUserCount = 0; // Counter for dynamically created users
+
+    // Dictionary to map UIDs to specific names
+    private Dictionary<string, string> uidToNameMap = new Dictionary<string, string>()
+    {
+        { "4:15:27:5:bc:2a:81", "Eric" },
+        { "4:84:2c:5:bc:2a:81", "Kaye" },
+        { "4:d5:f2:4:bc:2a:81", "Carl" },
+        { "4:33:ea:4:bc:2a:81", "Aubrey" },
+        { "4:81:fe:4:bc:2a:81", "Dan" },
+        { "4:45:15:5:bc:2a:81", "JP" },
+        { "4:e5:1a:5:bc:2a:81", "Paulo" },
+        { "4:88:21:5:bc:2a:81", "Aira" },
+        { "4:b1:f8:4:bc:2a:81", "Joenicel" },
+        { "4:c6:ee:4:bc:2a:81", "Rey" }
+    };
 
     private void Awake()
     {
@@ -101,11 +115,18 @@ public class LeaderboardManager : MonoBehaviour
 
     public void UpdateLeaderboard(string jsonData)
     {
-        var data = JsonConvert.DeserializeObject<LeaderboardData>(jsonData);
+        // Use Unity's JsonUtility for deserialization
+        LeaderboardData data = JsonUtility.FromJson<LeaderboardData>(jsonData);
 
-        var existingEntry = entries.Find(e => e.nfcId == data.NFC_ID);
+        // Convert NFC_ID to the expected format (replacing ':' with '')
+        string formattedNfcId = data.NFC_ID.Replace(":", "").ToLower();
+
+        // Find the existing entry by the NFC ID
+        var existingEntry = entries.Find(e => e.nfcId.ToLower() == formattedNfcId);
+
         if (existingEntry != null)
         {
+            // Update the score if the new score is higher
             if (data.Score > existingEntry.score)
             {
                 existingEntry.score = data.Score;
@@ -113,18 +134,36 @@ public class LeaderboardManager : MonoBehaviour
         }
         else
         {
-            SingleEntry newEntry = new SingleEntry
+            // Assign a name based on the formatted NFC_ID
+            string userName;
+            if (uidToNameMap.TryGetValue(formattedNfcId, out userName))
             {
-                nfcId = data.NFC_ID,
-                name = "User" + (entries.Count + 1),
-                fixture = 0,
-                score = data.Score
-            };
-            entries.Add(newEntry);
+                // Create a new entry if it doesn't exist
+                SingleEntry newEntry = new SingleEntry
+                {
+                    nfcId = formattedNfcId,
+                    name = userName,
+                    fixture = int.Parse(data.Station), // Convert Station to int
+                    score = data.Score
+                };
+                entries.Add(newEntry);
+            }
+            else
+            {
+                // Handle unknown users
+                SingleEntry newEntry = new SingleEntry
+                {
+                    nfcId = formattedNfcId,
+                    name = "Unknown User", // Fallback for undefined users
+                    fixture = int.Parse(data.Station),
+                    score = data.Score
+                };
+                entries.Add(newEntry);
+            }
         }
 
+        // Sort and update the UI
         entries.Sort((a, b) => b.score.CompareTo(a.score));
-
         UpdateUI(existingEntry ?? entries[entries.Count - 1]);
     }
 
@@ -201,6 +240,7 @@ public class LeaderboardManager : MonoBehaviour
         entryTransform.localScale = originalScale;
     }
 
+    [System.Serializable]
     private class SingleEntry
     {
         public string nfcId;
@@ -209,9 +249,11 @@ public class LeaderboardManager : MonoBehaviour
         public int score;
     }
 
+    [System.Serializable]
     private class LeaderboardData
     {
-        public string NFC_ID;
-        public int Score;
+        public string NFC_ID; // Format: "4:c6:ee:4:bc:2a:81"
+        public string Station; // This corresponds to the fixture
+        public int Score; // The score to update
     }
 }
