@@ -7,6 +7,7 @@ using System;
 public class HttpServer : MonoBehaviour
 {
     private HttpListener httpListener;
+    private LeaderboardManager lbManager;
     private string localIPAddress;
 
     private void Start()
@@ -66,6 +67,7 @@ public class HttpServer : MonoBehaviour
 
             // Print received data to the console
             Debug.Log("Received JSON Data: " + jsonData);
+            lbManager.UpdateLeaderboard(jsonData);
 
             // Store received JSON data in the singleton
             Singleton.Instance.jsonData = jsonData;
