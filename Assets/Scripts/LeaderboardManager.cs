@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -15,30 +16,44 @@ public class LeaderboardManager : MonoBehaviour
     private Dictionary<int, SingleEntry> userMap = new Dictionary<int, SingleEntry>(); // Map for user references
     private int newUserCount = 0; // Counter for dynamically created users
 
-    // Dictionary to map UIDs to specific names
-    private Dictionary<string, string> uidToNameMap = new Dictionary<string, string>()
-    {
-        { "4:15:27:5:bc:2a:81", "Eric" },
-        { "4:84:2c:5:bc:2a:81", "Kaye" },
-        { "4:d5:f2:4:bc:2a:81", "Carl" },
-        { "4:33:ea:4:bc:2a:81", "Aubrey" },
-        { "4:81:fe:4:bc:2a:81", "Dan" },
-        { "4:45:15:5:bc:2a:81", "JP" },
-        { "4:e5:1a:5:bc:2a:81", "Paulo" },
-        { "4:88:21:5:bc:2a:81", "Aira" },
-        { "4:b1:f8:4:bc:2a:81", "Joenicel" },
-        { "4:c6:ee:4:bc:2a:81", "Rey" }
-    };
+    // Dictionary to map UIDs to specific names, populated from UID_NFC.json
+    private Dictionary<string, string> uidToNameMap = new Dictionary<string, string>();
 
     private void Awake()
     {
         entryHolder = entryHolderObj.transform;
         entryTemplate = entryTemplateObj.transform;
 
+        LoadUIDMappings(); // Load UID.json and populate uidToNameMap
         InitializeEntries();
         entryTemplate.gameObject.SetActive(false);
 
         UpdateUI();
+    }
+
+    private void LoadUIDMappings()
+    {
+        // Debug.Log("Loading UID mappings...");
+
+        string path = Path.Combine(Application.streamingAssetsPath, "UID_NFC.json");
+
+        if (File.Exists(path))
+        {
+            string jsonContent = File.ReadAllText(path);
+            // Debug.Log("JSON Content: " + jsonContent); // Log the raw JSON content
+            UIDMappings uidMappings = JsonUtility.FromJson<UIDMappings>(jsonContent);
+
+            foreach (var mapping in uidMappings.uidToNameMap)
+            {
+                string formattedUID = mapping.UID.Trim().Replace(":", "").ToLower();
+                uidToNameMap[formattedUID] = mapping.Name;
+                // Debug.Log($"Loaded UID: {formattedUID} with Name: {mapping.Name}");
+            }
+        }
+        else
+        {
+            Debug.LogError("UID3.json file not found at path: " + path);
+        }
     }
 
     private void Update()
@@ -115,18 +130,15 @@ public class LeaderboardManager : MonoBehaviour
 
     public void UpdateLeaderboard(string jsonData)
     {
-        // Use Unity's JsonUtility for deserialization
         LeaderboardData data = JsonUtility.FromJson<LeaderboardData>(jsonData);
-
-        // Convert NFC_ID to the expected format (replacing ':' with '')
         string formattedNfcId = data.NFC_ID.Replace(":", "").ToLower();
 
-        // Find the existing entry by the NFC ID
+        Debug.Log("Received UID: " + formattedNfcId);
+
         var existingEntry = entries.Find(e => e.nfcId.ToLower() == formattedNfcId);
 
         if (existingEntry != null)
         {
-            // Update the score if the new score is higher
             if (data.Score > existingEntry.score)
             {
                 existingEntry.score = data.Score;
@@ -134,40 +146,32 @@ public class LeaderboardManager : MonoBehaviour
         }
         else
         {
-            // Assign a name based on the formatted NFC_ID
-            string userName;
-            if (uidToNameMap.TryGetValue(formattedNfcId, out userName))
+            string userName = GetNameByUID(formattedNfcId); // Get name by UID
+            // Debug.Log($"UID {formattedNfcId} found. Name: {userName}");
+
+            SingleEntry newEntry = new SingleEntry
             {
-                // Create a new entry if it doesn't exist
-                SingleEntry newEntry = new SingleEntry
-                {
-                    nfcId = formattedNfcId,
-                    name = userName,
-                    fixture = int.Parse(data.Station), // Convert Station to int
-                    score = data.Score
-                };
-                entries.Add(newEntry);
-            }
-            else
-            {
-                // Handle unknown users
-                SingleEntry newEntry = new SingleEntry
-                {
-                    nfcId = formattedNfcId,
-                    name = "Unknown User", // Fallback for undefined users
-                    fixture = int.Parse(data.Station),
-                    score = data.Score
-                };
-                entries.Add(newEntry);
-            }
+                nfcId = formattedNfcId,
+                name = userName,
+                fixture = int.Parse(data.Station),
+                score = data.Score
+            };
+            entries.Add(newEntry);
         }
 
-        // Sort and update the UI
         entries.Sort((a, b) => b.score.CompareTo(a.score));
         UpdateUI(existingEntry ?? entries[entries.Count - 1]);
     }
 
-    // Update UI and highlight specific entry
+    private string GetNameByUID(string uid)
+    {
+        if (uidToNameMap.TryGetValue(uid, out string name))
+        {
+            return name;
+        }
+        return "Unknown User"; // Default name if UID is not found
+    }
+
     private void UpdateUI(SingleEntry updatedEntry = null)
     {
         foreach (Transform child in entryHolder)
@@ -189,7 +193,7 @@ public class LeaderboardManager : MonoBehaviour
                     entryImage.color = new Color(1f, 0.84f, 0f, 100f / 255f);
                     break;
                 case 2:
-                    entryImage.color = new Color(192f / 255f, 192f / 255f, 192f / 255f, 100f / 255f);
+                    entryImage.color = new Color(192f / 255f, 192f / 255f, 100f / 255f);
                     break;
                 case 3:
                     entryImage.color = new Color(0.8f, 0.52f, 0.25f, 100f / 255f);
@@ -201,7 +205,6 @@ public class LeaderboardManager : MonoBehaviour
             entryTransform.GetChild(2).GetComponent<TMP_Text>().text = entry.fixture.ToString();
             entryTransform.GetChild(3).GetComponent<TMP_Text>().text = entry.score.ToString();
 
-            // Highlight the updated entry
             if (entry == updatedEntry)
             {
                 StartCoroutine(HighlightEntryWithLerp(entryTransform));
@@ -209,14 +212,12 @@ public class LeaderboardManager : MonoBehaviour
         }
     }
 
-    // Coroutine for smooth scaling using Lerp
     private IEnumerator HighlightEntryWithLerp(Transform entryTransform)
     {
         Vector3 originalScale = entryTransform.localScale;
         Vector3 targetScale = originalScale * 1.1f;
-        float duration = 0.3f; // Time to scale up
+        float duration = 0.3f;
 
-        // Scale up
         float time = 0f;
         while (time < duration)
         {
@@ -226,10 +227,8 @@ public class LeaderboardManager : MonoBehaviour
         }
         entryTransform.localScale = targetScale;
 
-        // Wait for 3 seconds before scaling back
         yield return new WaitForSeconds(1);
 
-        // Scale back down
         time = 0f;
         while (time < duration)
         {
@@ -252,8 +251,21 @@ public class LeaderboardManager : MonoBehaviour
     [System.Serializable]
     private class LeaderboardData
     {
-        public string NFC_ID; // Format: "4:c6:ee:4:bc:2a:81"
-        public string Station; // This corresponds to the fixture
-        public int Score; // The score to update
+        public string NFC_ID;
+        public string Station;
+        public int Score;
+    }
+
+    [System.Serializable]
+    private class UIDMappings
+    {
+        public List<UIDMapping> uidToNameMap;
+    }
+
+    [System.Serializable]
+    private class UIDMapping
+    {
+        public string UID; // Should match the JSON key "UID"
+        public string Name; // Should match the JSON key "Name"
     }
 }
