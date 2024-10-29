@@ -3,12 +3,14 @@ using System.Net;
 using System.Threading.Tasks;
 using System.IO;
 using System;
+using TMPro;
 
 public class HttpServer : MonoBehaviour
 {
     private HttpListener httpListener;
     private LeaderboardManager lbManager;
     // private LeaderboardAPI lbManager;
+    public TMP_Text ipAddress;
     private string localIPAddress;
 
     private void Awake() {
@@ -20,7 +22,9 @@ public class HttpServer : MonoBehaviour
     private void Start()
     {
         localIPAddress = GetLocalIPAddress();
+        //localIPAddress = "0.0.0.0";
         Debug.Log("Local IP Address: " + localIPAddress);
+        ipAddress.text = localIPAddress;
         StartServer();
     }
 
