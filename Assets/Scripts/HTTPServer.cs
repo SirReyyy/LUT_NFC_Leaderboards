@@ -8,11 +8,13 @@ public class HttpServer : MonoBehaviour
 {
     private HttpListener httpListener;
     private LeaderboardManager lbManager;
+    // private LeaderboardAPI lbManager;
     private string localIPAddress;
 
     private void Awake() {
         // Find the LeaderboardManager component in the scene
         lbManager = FindObjectOfType<LeaderboardManager>();
+        // lbManager = FindObjectOfType<LeaderboardAPI>();
     }
 
     private void Start()

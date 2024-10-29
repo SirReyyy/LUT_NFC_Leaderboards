@@ -1,11 +1,12 @@
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.Networking;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
 
-public class LeaderboardManager : MonoBehaviour
+public class LeaderboardAPI : MonoBehaviour
 {
     public GameObject entryHolderObj; // Holder for the entries
     public GameObject entryTemplateObj; // Template for each entry
@@ -19,6 +20,8 @@ public class LeaderboardManager : MonoBehaviour
     // Dictionary to map UIDs to specific names, populated from UID_NFC.json
     private Dictionary<string, string> uidToNameMap = new Dictionary<string, string>();
 
+    private string serverURL = "http://192.168.88.20:12345"; // Update with your Arduino server IP and port
+
     private void Awake()
     {
         entryHolder = entryHolderObj.transform;
@@ -28,52 +31,27 @@ public class LeaderboardManager : MonoBehaviour
         InitializeEntries();
         entryTemplate.gameObject.SetActive(false);
 
-        UpdateUI();
+        StartCoroutine(FetchLeaderboardData()); // Start fetching data from the server
     }
 
     private void LoadUIDMappings()
     {
-        // Debug.Log("Loading UID mappings...");
-
         string path = Path.Combine(Application.streamingAssetsPath, "UID_NFC.json");
 
         if (File.Exists(path))
         {
             string jsonContent = File.ReadAllText(path);
-            // Debug.Log("JSON Content: " + jsonContent); // Log the raw JSON content
             UIDMappings uidMappings = JsonUtility.FromJson<UIDMappings>(jsonContent);
 
             foreach (var mapping in uidMappings.uidToNameMap)
             {
                 string formattedUID = mapping.UID.Trim().Replace(":", "").ToLower();
                 uidToNameMap[formattedUID] = mapping.Name;
-                // Debug.Log($"Loaded UID: {formattedUID} with Name: {mapping.Name}");
             }
         }
         else
         {
             Debug.LogError("UID_NFC.json file not found at path: " + path);
-        }
-    }
-
-    private void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            AddNewUser();
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            AddScoreToUser(1, 100);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            AddScoreToUser(2, 100);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            AddScoreToUser(3, 100);
         }
     }
 
@@ -93,45 +71,32 @@ public class LeaderboardManager : MonoBehaviour
         }
     }
 
-    private void AddScoreToUser(int userIndex, int scoreToAdd)
+    private IEnumerator FetchLeaderboardData()
     {
-        if (userMap.ContainsKey(userIndex))
+        while (true) // Loop to continuously fetch data
         {
-            SingleEntry userEntry = userMap[userIndex];
-            userEntry.score += scoreToAdd;
+            yield return new WaitForSeconds(5); // Adjust the interval as needed
+            using (UnityWebRequest request = UnityWebRequest.Get(serverURL))
+            {
+                yield return request.SendWebRequest();
 
-            entries.Sort((a, b) => b.score.CompareTo(a.score));
-
-            UpdateUI(userEntry); // Highlight updated entry
+                if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
+                {
+                    Debug.LogError("Error fetching data: " + request.error);
+                }
+                else
+                {
+                    // Handle the received data
+                    UpdateLeaderboard(request.downloadHandler.text);
+                }
+            }
         }
-        else
-        {
-            Debug.LogError("User index out of range.");
-        }
-    }
-
-    private void AddNewUser()
-    {
-        newUserCount++;
-        SingleEntry newEntry = new SingleEntry
-        {
-            nfcId = "new_" + newUserCount,
-            name = "New User " + newUserCount,
-            fixture = 0,
-            score = 100
-        };
-
-        entries.Add(newEntry);
-
-        entries.Sort((a, b) => b.score.CompareTo(a.score));
-
-        UpdateUI(newEntry); // Highlight the new entry
     }
 
     public void UpdateLeaderboard(string jsonData)
     {
         LeaderboardData data = JsonUtility.FromJson<LeaderboardData>(jsonData);
-        string formattedNfcId = data.NFC_ID.Replace(":", "").ToLower();
+        string formattedNfcId = data.NFC_ID.Trim().ToLower(); // Remove colons and convert to lowercase
 
         Debug.Log("Received UID: " + formattedNfcId);
 
@@ -164,7 +129,6 @@ public class LeaderboardManager : MonoBehaviour
             UpdateUI(newEntry); // Highlight the new entry
         }
     }
-
 
     private string GetNameByUID(string uid)
     {
@@ -254,7 +218,7 @@ public class LeaderboardManager : MonoBehaviour
     [System.Serializable]
     private class LeaderboardData
     {
-        public string NFC_ID;
+        public string NFC_ID; // Assuming this is coming in as a string without colons
         public string Station;
         public int Score;
     }
@@ -268,7 +232,7 @@ public class LeaderboardManager : MonoBehaviour
     [System.Serializable]
     private class UIDMapping
     {
-        public string UID; // Should match the JSON key "UID"
-        public string Name; // Should match the JSON key "Name"
+        public string UID;
+        public string Name;
     }
 }
