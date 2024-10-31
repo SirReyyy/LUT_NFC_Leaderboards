@@ -66,19 +66,32 @@ public class LeaderboardManager : MonoBehaviour
             AddNewUser();
         }
 
-        if (Input.GetKeyDown(KeyCode.Alpha1))
+        for (int i = 1; i <= 8; i++)
         {
-            AddScoreToUser(1, 100);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            AddScoreToUser(2, 100);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            AddScoreToUser(3, 100);
+            if (Input.GetKeyDown(KeyCode.Alpha0 + i)) // Using KeyCode Alpha1 - Alpha8
+            {
+                AddScoreToPosition(i, 100); // Call the method based on the current leaderboard position
+            }
         }
     }
+
+    private void AddScoreToPosition(int leaderboardPosition, int scoreToAdd)
+    {
+        if (leaderboardPosition <= entries.Count && leaderboardPosition > 0)
+        {
+            SingleEntry entryAtPosition = entries[leaderboardPosition - 1]; // Get entry at specified position (1-based to 0-based index)
+            entryAtPosition.score += scoreToAdd;
+
+            // Re-sort and update UI to reflect any rank changes
+            entries.Sort((a, b) => b.score.CompareTo(a.score));
+            UpdateUI(entryAtPosition); // Highlight updated entry
+        }
+        else
+        {
+            Debug.LogError("Position out of leaderboard range.");
+        }
+    }
+
 
     private void InitializeEntries()
     {
@@ -93,23 +106,6 @@ public class LeaderboardManager : MonoBehaviour
             };
             entries.Add(entry);
             userMap.Add(i + 1, entry);
-        }
-    }
-
-    private void AddScoreToUser(int userIndex, int scoreToAdd)
-    {
-        if (userMap.ContainsKey(userIndex))
-        {
-            SingleEntry userEntry = userMap[userIndex];
-            userEntry.score += scoreToAdd;
-
-            entries.Sort((a, b) => b.score.CompareTo(a.score));
-
-            UpdateUI(userEntry); // Highlight updated entry
-        }
-        else
-        {
-            Debug.LogError("User index out of range.");
         }
     }
 
@@ -185,6 +181,9 @@ public class LeaderboardManager : MonoBehaviour
             Destroy(child.gameObject);
         }
 
+        int currentRank = 1; // Start ranking from 1
+        int displayedRank = 1; // Rank displayed in the UI, accounting for ties
+
         for (int i = 0; i < Mathf.Min(8, entries.Count); i++)
         {
             SingleEntry entry = entries[i];
@@ -196,34 +195,57 @@ public class LeaderboardManager : MonoBehaviour
             Transform entryRanking_1 = entryTransform.GetChild(0).GetChild(1);
             Transform entryRanking_2 = entryTransform.GetChild(0).GetChild(2);
 
-            switch (i + 1)
+            // Determine if the entry has a valid score for ranking
+            if (entry.score > 0)
             {
-                default: break;
-                case 1:
-                    entryImage.color = new Color(1f, 0.84f, 0f, 100f / 255f);
-                    entryRanking_0.gameObject.SetActive(true);
-                    break;
-                case 2:
-                    entryImage.color = new Color(192f / 255f, 192f / 255f, 192f / 255f);
-                    entryRanking_1.gameObject.SetActive(true);
-                    break;
-                case 3:
-                    entryImage.color = new Color(0.8f, 0.52f, 0.25f, 100f / 255f);
-                    entryRanking_2.gameObject.SetActive(true);
-                    break;
+                // Assign color and symbol based on displayedRank
+                switch (displayedRank)
+                {
+                    case 1:
+                        entryImage.color = new Color(1f, 0.84f, 0f, 100f / 255f);
+                        entryRanking_0.gameObject.SetActive(true);
+                        break;
+                    case 2:
+                        entryImage.color = new Color(192f / 255f, 192f / 255f, 192f / 255f);
+                        entryRanking_1.gameObject.SetActive(true);
+                        break;
+                    case 3:
+                        entryImage.color = new Color(0.8f, 0.52f, 0.25f, 100f / 255f);
+                        entryRanking_2.gameObject.SetActive(true);
+                        break;
+                    default:
+                        break;
+                }
+
+                // Display rank number
+                entryTransform.GetChild(0).GetComponent<TMP_Text>().text = displayedRank.ToString();
+
+                // Increment displayed rank for next valid entry
+                if (i < entries.Count - 1 && entry.score != entries[i + 1].score)
+                {
+                    currentRank++;
+                    displayedRank = currentRank;
+                }
+            }
+            else
+            {
+                // If score is 0 or less, set the rank display to blank
+                entryTransform.GetChild(0).GetComponent<TMP_Text>().text = ""; // Blank rank display
             }
 
-            entryTransform.GetChild(0).GetComponent<TMP_Text>().text = (i + 1).ToString();
+            // Display user details
             entryTransform.GetChild(1).GetComponent<TMP_Text>().text = entry.name;
             entryTransform.GetChild(2).GetComponent<TMP_Text>().text = entry.fixture.ToString();
             entryTransform.GetChild(3).GetComponent<TMP_Text>().text = entry.score.ToString();
 
+            // Highlight if this is the updated entry
             if (entry == updatedEntry)
             {
                 StartCoroutine(HighlightEntryWithLerp(entryTransform));
             }
         }
     }
+
 
     private IEnumerator HighlightEntryWithLerp(Transform entryTransform)
     {
