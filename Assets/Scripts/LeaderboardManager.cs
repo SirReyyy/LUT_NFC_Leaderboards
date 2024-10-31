@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 
 public class LeaderboardManager : MonoBehaviour
@@ -72,6 +73,11 @@ public class LeaderboardManager : MonoBehaviour
             {
                 AddScoreToPosition(i, 100); // Call the method based on the current leaderboard position
             }
+        }
+
+        if (Input.GetKeyDown(KeyCode.Tab))
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
     }
 
