@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System;
 using TMPro;
+using System.Text;
 
 public class HttpServer : MonoBehaviour
 {
@@ -70,10 +71,13 @@ public class HttpServer : MonoBehaviour
         try
         {
             // Read the request data
-            string jsonData;
-            using (var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
+            string jsonData = string.Empty;
+            if (context.Request.ContentLength64 > 0)
             {
-                jsonData = reader.ReadToEnd();
+                using (var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
+                {
+                    jsonData = reader.ReadToEnd();
+                }
             }
 
             // Print received data to the console
@@ -83,29 +87,46 @@ public class HttpServer : MonoBehaviour
             // Store received JSON data in the singleton
             Singleton.Instance.jsonData = jsonData;
 
+            // Prepare the response entity
+            string responseEntity = "{\"status\":\"success\"}";
+            byte[] responseBytes = Encoding.UTF8.GetBytes(responseEntity);
+
             // Send a response back to the client
             context.Response.StatusCode = 200; // OK
             context.Response.ContentType = "application/json"; // Set ContentType
 
             using (var writer = new StreamWriter(context.Response.OutputStream))
             {
-                writer.Write("{\"status\":\"success\"}"); // Example response
+                writer.Write(responseEntity); // Write response
+                writer.Flush(); // Ensure data is sent
             }
+
+            // Close the response with the desired blocking behavior
+            context.Response.Close(responseBytes, false); // Non-blocking close
         }
         catch (Exception ex)
         {
             Debug.LogError("Error processing request: " + ex.Message);
             context.Response.StatusCode = 500; // Internal Server Error
+            string errorResponse = "{\"status\":\"error\",\"message\":\"" + ex.Message + "\"}";
+            byte[] errorResponseBytes = Encoding.UTF8.GetBytes(errorResponse);
+
             using (var writer = new StreamWriter(context.Response.OutputStream))
             {
-                writer.Write("{\"status\":\"error\",\"message\":\"" + ex.Message + "\"}"); // Send error response
+                writer.Write(errorResponse); // Send error response
+                writer.Flush(); // Ensure data is sent
             }
+
+            // Close the response with blocking if necessary
+            context.Response.Close(errorResponseBytes, false); // Non-blocking close
         }
         finally
         {
+            // Ensure the response is closed, but you may not need this if already closing in catch
             context.Response.Close();
         }
     }
+
 
     private void OnDestroy()
     {

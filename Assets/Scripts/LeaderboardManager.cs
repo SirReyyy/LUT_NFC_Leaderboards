@@ -13,11 +13,14 @@ public class LeaderboardManager : MonoBehaviour
     private Transform entryTemplate;
     private List<SingleEntry> entries = new List<SingleEntry>();
 
+
+
     private Dictionary<int, SingleEntry> userMap = new Dictionary<int, SingleEntry>(); // Map for user references
     private int newUserCount = 0; // Counter for dynamically created users
 
     // Dictionary to map UIDs to specific names, populated from UID_NFC.json
     private Dictionary<string, string> uidToNameMap = new Dictionary<string, string>();
+
 
     private void Awake()
     {
@@ -189,17 +192,24 @@ public class LeaderboardManager : MonoBehaviour
             entryTransform.gameObject.SetActive(true);
 
             Image entryImage = entryTransform.GetComponent<Image>();
+            Transform entryRanking_0 = entryTransform.GetChild(0).GetChild(0);
+            Transform entryRanking_1 = entryTransform.GetChild(0).GetChild(1);
+            Transform entryRanking_2 = entryTransform.GetChild(0).GetChild(2);
+
             switch (i + 1)
             {
                 default: break;
                 case 1:
                     entryImage.color = new Color(1f, 0.84f, 0f, 100f / 255f);
+                    entryRanking_0.gameObject.SetActive(true);
                     break;
                 case 2:
-                    entryImage.color = new Color(192f / 255f, 192f / 255f, 100f / 255f);
+                    entryImage.color = new Color(192f / 255f, 192f / 255f, 192f / 255f);
+                    entryRanking_1.gameObject.SetActive(true);
                     break;
                 case 3:
                     entryImage.color = new Color(0.8f, 0.52f, 0.25f, 100f / 255f);
+                    entryRanking_2.gameObject.SetActive(true);
                     break;
             }
 
